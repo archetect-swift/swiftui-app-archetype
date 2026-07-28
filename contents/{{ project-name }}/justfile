@@ -1,0 +1,46 @@
+# Every verb for this project. `just` is the single entry point — CI, a fresh
+# clone, and your terminal all run the same recipes.
+#
+# Recipes deliberately avoid just's own {{ LE }} {{ RE }} interpolation: the project
+# name is baked in at generation time, so there is nothing to substitute.
+
+default: build
+
+# Build the SwiftPM libraries. Fast, headless, no Xcode required.
+build:
+    swift build
+
+# Run the Swift Testing suites.
+test:
+    swift test
+
+# Black-box proofs (see prova.toml). Requires `prova` on PATH.
+proof:
+    prova
+
+# Regenerate the Xcode project from project.yml. Never checked in.
+xcodeproj:
+    xcodegen generate
+
+# Build the .app bundle.
+app: xcodeproj
+    xcodebuild -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -configuration Debug build
+
+# Build and launch the app.
+run: app
+    open "$(xcodebuild -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -configuration Debug -showBuildSettings | awk -F'= ' '/ BUILT_PRODUCTS_DIR /{print $2}' | head -1)/{{ app_display_name }}.app"
+
+# Format sources in place using the toolchain's swift-format.
+fmt:
+    swift format --in-place --recursive Sources Tests App
+
+# Fail if anything is unformatted — what CI should run.
+fmt-check:
+    swift format lint --strict --recursive Sources Tests App
+
+# Everything CI runs, in order.
+ci: fmt-check build test
+
+clean:
+    swift package clean
+    rm -rf .build {{ ProjectName }}.xcodeproj

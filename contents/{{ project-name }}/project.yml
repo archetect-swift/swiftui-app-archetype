@@ -1,0 +1,54 @@
+---
+# XcodeGen owns the .app bundle so no .xcodeproj is checked in — it is a
+# merge-conflict magnet and near-impossible to review. Regenerate with
+# `just xcodeproj`; the generated project is gitignored.
+name: {{ ProjectName }}
+
+options:
+  bundleIdPrefix: {{ organization_identifier }}
+  deploymentTarget:
+    macOS: "{{ macos_deployment_target }}"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  # The local SwiftPM package at the repo root. All real code lives there;
+  # this project exists to wrap it in a bundle.
+  {{ ProjectName }}:
+    path: .
+
+targets:
+  {{ ProjectName }}:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: {{ ProjectName }}
+        product: {{ ProjectName }}UI
+      - package: {{ ProjectName }}
+        product: {{ ProjectName }}Core
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleName: {{ app_display_name }}
+        CFBundleDisplayName: {{ app_display_name }}
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "{{ macos_deployment_target }}"
+        NSHumanReadableCopyright: "Copyright © {{ author_name }}"
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSPrincipalClass: NSApplication
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: {{ bundle_identifier }}
+        SWIFT_VERSION: "6.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_HARDENED_RUNTIME: true
+        # Ad-hoc signing keeps `just app` working on a fresh clone with no
+        # Apple Developer account. Set DEVELOPMENT_TEAM and switch to
+        # Automatic when you need notarization.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""

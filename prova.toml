@@ -1,0 +1,7 @@
+# Prova proves what archetect renders. These proofs render the archetype and
+# then drive the result exactly as a developer would — through `just`.
+#
+# Run `prova` from anywhere in this repo.
+
+[run]
+proofs = ["proofs"]
