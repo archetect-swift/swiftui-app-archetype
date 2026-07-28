@@ -60,6 +60,16 @@ prova.test("names the repo in kebab and the modules in Pascal", {
 	t:expect(manifest, "deployment target flows from the prompt"):contains(".macOS(.v14)")
 end)
 
+prova.test("ignores build output and the generated Xcode project", {
+	proves = "without these the first commit of every generated repo carries .build/ and a "
+		.. "checked-in .xcodeproj — the exact thing project.yml exists to avoid. Needs "
+		.. "gitignore-library >= v1.2; a stale cached `v1` tag fails here, and `-U` fixes it.",
+}, function(t)
+	local ignored = fs.read(t:use(app) .. "/.gitignore")
+	t:expect(ignored, "SwiftPM build output"):contains(".build/")
+	t:expect(ignored, "the generated Xcode project"):contains("*.xcodeproj/")
+end)
+
 prova.test("the generated package builds", {
 	proves = "a scaffold that does not compile is worse than no scaffold — it costs the "
 		.. "developer the time to discover it. Driven through `just` so the justfile is "

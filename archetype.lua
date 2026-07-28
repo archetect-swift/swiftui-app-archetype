@@ -34,11 +34,12 @@ scm.prompt(context)
 
 local repo_name = context:get("project-name")
 context:set("repo_name", repo_name)
--- TODO: add "Swift" and "XcodeGen" to the default set once gitignore-library
--- publishes them (the fragments exist locally but not in the pinned #v1 tag).
--- Until then the generated repo does not ignore .build/ or the generated
--- .xcodeproj.
-gitignore.prompt(context)
+-- Swift covers SwiftPM and Xcode user state; XcodeGen is separate because
+-- ignoring *.xcodeproj is only correct for projects that generate it — which
+-- this one does.
+gitignore.prompt(context, {
+	default = { "Claude", "IDEA", "VSCode", "Vim", "macOS", "Swift", "XcodeGen" },
+})
 editor_config.prompt(context)
 
 -- ── Derived ─────────────────────────────────────────────────────────────
