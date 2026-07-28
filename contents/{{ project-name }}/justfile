@@ -27,8 +27,10 @@ app: xcodeproj
     xcodebuild -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -configuration Debug build
 
 # Build and launch the app.
+# The product is named after the Xcode target, not the display name — a project
+# called "Sample App" still builds SampleApp.app.
 run: app
-    open "$(xcodebuild -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -configuration Debug -showBuildSettings | awk -F'= ' '/ BUILT_PRODUCTS_DIR /{print $2}' | head -1)/{{ app_display_name }}.app"
+    open "$(xcodebuild -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -configuration Debug -showBuildSettings | awk -F'= ' '/ BUILT_PRODUCTS_DIR /{print $2}' | head -1)/{{ ProjectName }}.app"
 
 # Format sources in place using the toolchain's swift-format.
 fmt:

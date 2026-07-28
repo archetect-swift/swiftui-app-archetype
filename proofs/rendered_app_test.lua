@@ -113,14 +113,77 @@ prova.test("the .app bundle builds and signs ad-hoc", {
 	t:expect(result.stdout .. result.stderr, "xcodebuild succeeded"):contains("BUILD SUCCEEDED")
 end)
 
-prova.test("the app exposes accessibility identifiers for its key controls", {
-	spec = "AX: assert against the RUNNING app via minion rather than the source text. "
-		.. "Needs `just app`, a signed bundle, and a GUI session, so it is deferred until "
-		.. "there is behaviour worth driving. The identifiers exist from day one precisely "
-		.. "so this proof can be written without reworking the views.",
+-- ── AX-driven proofs ────────────────────────────────────────────────────────────
+--
+-- These drive the RUNNING app through the Accessibility API rather than reading the
+-- source. Source-reading would prove the identifiers were typed; only AX proves they
+-- reach the accessibility tree, which is what a screen reader — and any UI
+-- automation — actually consumes.
+--
+-- `requires = {"macos-ui"}` skips them where the driver is unavailable (CI, headless),
+-- so they cost nothing there and hold the line on a dev machine.
+
+local ui = require("macos-ui")
+
+--- The rendered app, built into a bundle and launched. Scope.File so one launch
+--- serves every AX proof below.
+local running = prova.fixture("running-app", Scope.File, function(ctx)
+	local root = ctx:use(app)
+	shell.run({ "just", "app" }, { cwd = root, timeout = "900s", check = true })
+
+	local settings = shell.run({
+		"xcodebuild", "-project", MODULE .. ".xcodeproj", "-scheme", MODULE,
+		"-configuration", "Debug", "-showBuildSettings",
+	}, { cwd = root, timeout = "300s", check = true })
+	local products = settings.stdout:match("BUILT_PRODUCTS_DIR = ([^\n]+)")
+	assert(products, "could not locate BUILT_PRODUCTS_DIR")
+
+	-- The product is named after the Xcode TARGET, not the display name: a project
+	-- whose display name has a space still builds `SampleApp.app`.
+	local bundle = (products:gsub("%s+$", "")) .. "/" .. MODULE .. ".app"
+	local handle = ui.launch(ctx, { bundle = bundle })
+	local window = handle:window({ title = NAME, normal = true })
+	assert(window, "the app launched but presented no normal window")
+	return window
+end)
+
+prova.test("the app's greeting reaches the accessibility tree", {
+	proves = "identifiers in source only prove someone typed them. Reading the value back "
+		.. "through AX proves it reaches the tree a screen reader consumes — and that the "
+		.. "async load actually resolved, which a static check cannot see.",
+	requires = { "macos-ui" },
 }, function(t)
-	local root = t:use(app)
-	-- Placeholder for the real thing: launch the built .app and query the
-	-- accessibility tree for root.greeting.text / root.reload.button.
-	t:expect(fs.exists(root .. "/build/launched.marker"), "app was launched and queried"):equals(true)
+	local window = t:use(running)
+
+	local greeting = window:wait_for("root.greeting.text", "10s")
+	t:expect(greeting, "the greeting appears once loading resolves"):never():equals(nil)
+	t:expect(ui.text_of(greeting), "it greets by name"):contains(NAME)
+end)
+
+prova.test("no control in the app is anonymous", {
+	spec = "blocked on minion: the invariant works and currently reports the window's three "
+		.. "traffic lights (close/minimize/zoom at y=188 with the window top at y=180, one "
+		.. "carrying AXZoomWindow). Those are AppKit-owned chrome an app cannot label, and the "
+		.. "correct discriminator is AXSubrole — which minion.window.elements does not return, "
+		.. "so chrome is indistinguishable from a genuinely unlabelled app button. Add `subrole` "
+		.. "to minion_core::ElementInfo + element_info_table, then exempt the standard chrome "
+		.. "subroles and graduate this.",
+	requires = { "macos-ui" },
+}, function(t)
+	ui.assert_no_anonymous_controls(t, t:use(running))
+end)
+
+prova.test("pressing Reload re-resolves the greeting", {
+	proves = "the scaffold is drivable end to end — an AX press reaches the button, the "
+		.. "async reload runs, and the tree settles back to a loaded greeting. This is the "
+		.. "shape every downstream UI proof will copy.",
+	requires = { "macos-ui" },
+}, function(t)
+	local window = t:use(running)
+	t:expect(window:wait_for("root.reload.button", "10s"), "the reload button is reachable"):never():equals(nil)
+
+	window:click("root.reload.button")
+
+	local greeting = window:wait_for("root.greeting.text", "10s")
+	t:expect(greeting, "the greeting is back after reloading"):never():equals(nil)
 end)

@@ -1,7 +1,10 @@
 # Prova proves what archetect renders. These proofs render the archetype and
-# then drive the result exactly as a developer would — through `just`.
+# then drive the result exactly as a developer would — through `just`, and for
+# the UI, through the Accessibility API.
 #
 # Run `prova` from anywhere in this repo.
 
 [run]
-proofs = ["proofs"]
+proofs      = ["proofs"]
+config      = ".prova/config.lua"   # where capabilities are registered
+plugin_root = ".prova/plugins"      # `require("macos-ui")` reaches the UI driver
