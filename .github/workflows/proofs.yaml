@@ -1,0 +1,53 @@
+name: Proofs
+
+# The proofs render the archetype and then build the result, so this needs a
+# macOS runner with Xcode — there is no way to prove a SwiftUI app compiles
+# without one, and a scaffold that does not compile is the failure that matters.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Bump these deliberately — pinning keeps a green CI from turning red on
+  # somebody else's release.
+  ARCHETECT_VERSION: v3.4.0
+  PROVA_VERSION: v0.14.0
+
+jobs:
+  proof:
+    # arm64, matching the macos-arm64 release artifacts below.
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install archetect and prova
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          install_tool() {
+            repo="$1"; tool="$2"; version="$3"
+            url="https://github.com/${repo}/releases/download/${version}/${tool}-${version}-macos-arm64.tar.gz"
+            # The tarball nests the binary one directory deep.
+            curl -sSfL "$url" | tar -xz -C "$HOME/.local/bin" --strip-components=1
+          }
+          install_tool archetect/archetect archetect "$ARCHETECT_VERSION"
+          install_tool prova-rs/prova prova "$PROVA_VERSION"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install just and xcodegen
+        run: brew install just xcodegen
+
+      - name: Versions
+        run: |
+          archetect --version
+          prova --version
+          just --version
+          xcodegen --version
+          swift --version
+
+      - name: Prove
+        run: prova
