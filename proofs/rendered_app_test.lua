@@ -17,6 +17,12 @@ local app = prova.fixture("rendered-app", Scope.File, function(ctx)
 		"-a", "project_name=" .. NAME,
 		"-a", "organization_identifier=com.example",
 		"-a", "minimum_macos=14",
+		-- Answer these explicitly rather than letting the author library fall
+		-- back to ~/.gitconfig. A proof that reads the developer's identity
+		-- passes on a laptop and fails on a clean runner, which is exactly how
+		-- this suite first went red in CI.
+		"-a", "author_name=Proof Runner",
+		"-a", "author_email=proofs@example.com",
 		"-D",
 	}, { timeout = "300s", check = true })
 	return ws.path .. "/" .. DIR
