@@ -12,7 +12,7 @@ on:
 env:
   # Bump these deliberately — pinning keeps a green CI from turning red on
   # somebody else's release.
-  ARCHETECT_VERSION: v3.4.0
+  ARCHETECT_VERSION: v3.4.2
   PROVA_VERSION: v0.14.0
 
 jobs:
