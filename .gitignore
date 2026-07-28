@@ -1,0 +1,26 @@
+### Claude ###
+.claude/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.ipr
+*.iml
+
+### VS Code ###
+.vscode/
+*.code-workspace
+
+### Vim ###
+*.swp
+*.swo
+*.un~
+Session.vim
+.netrwhist
+
+### macOS ###
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+

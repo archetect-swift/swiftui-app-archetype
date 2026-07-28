@@ -1,0 +1,27 @@
+---
+description: "SwiftUI application with a SwiftPM core, an XcodeGen-generated app shell, and just as the build entry point"
+authors: ["Jimmie Fulton <jimmie.fulton@gmail.com>"]
+
+requires:
+  archetect: "3.0.0"
+
+templating:
+  trim_blocks: true
+  lstrip_blocks: true
+
+catalog:
+  author:
+    source: "https://github.com/archetect-common/author-prompts-library.git#v1"
+    library: true
+  license:
+    source: "https://github.com/archetect-common/license-library.git#v1"
+    library: true
+  scm:
+    source: "https://github.com/archetect-common/scm-library.git#v1"
+    library: true
+  gitignore:
+    source: "https://github.com/archetect-common/gitignore-library.git#v1"
+    library: true
+  editor-config:
+    source: "https://github.com/archetect-common/editor-config-library.git#v1"
+    library: true
