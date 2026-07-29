@@ -3,6 +3,7 @@
 -- scaffold that does not compile pass, which is the failure mode that matters.
 
 local workspace = require("prova.workspace")
+local xcodebuild = require("xcodebuild")
 
 local NAME = "Sample App"
 local DIR = "sample-app"
@@ -134,23 +135,59 @@ prova.test("the generated project is already formatted", {
 	shell.run({ "just", "fmt-check" }, { cwd = root, timeout = "300s", check = true })
 end)
 
-prova.test("the accessibility suite passes against the running app", {
-	proves = "identifiers on the views are worth nothing until something drives them. XCUITest "
-		.. "ships with Xcode, so this bar costs a generated project no dependency it cannot "
-		.. "get — which is why it, and not a private UI harness, is what the archetype carries.",
+-- `xcodebuild.project` handles for a rendered tree. The proofs below drive the scheme directly
+-- so they can assert on individual cases; `just uitest` is proven separately, because that
+-- recipe is what a developer actually types.
+local function scheme(root)
+	return xcodebuild.project({
+		project = MODULE .. ".xcodeproj",
+		scheme = MODULE,
+		cwd = root,
+	})
+end
+
+prova.test("`just uitest` drives the suite", {
+	proves = "the recipe is the entry point a developer types and CI runs. Driving the scheme "
+		.. "directly everywhere else would leave the justfile itself unproven.",
 	resources = GUI,
 }, function(t)
 	local root = t:use(app)
-	local result = shell.run({ "just", "uitest" }, { cwd = root, timeout = "1200s", check = true })
-	t:expect(result.stdout .. result.stderr, "the suite ran and passed"):contains("TEST SUCCEEDED")
+	shell.run({ "just", "uitest" }, { cwd = root, timeout = "1200s", check = true })
+end)
+
+prova.test("every accessibility case passes against the running app", {
+	proves = "identifiers on the views are worth nothing until something drives them. Asserted "
+		.. "case by case on purpose: `xcodebuild test` exits zero when it matched NO tests, so "
+		.. "'the build said TEST SUCCEEDED' cannot tell a passing suite from an empty one. "
+		.. "Naming the cases means a bar that quietly stopped running is a failure, not a pass.",
+	resources = GUI,
+}, function(t)
+	local root = t:use(app)
+	shell.run({ "just", "xcodeproj" }, { cwd = root, timeout = "300s", check = true })
+
+	local run = xcodebuild.test(t, scheme(root))
+	t:expect(run.failures, xcodebuild.summarize(run)):is_empty()
+
+	local names = {}
+	for _, case in ipairs(run.cases) do
+		names[case.name] = case.result
+	end
+	for _, case in ipairs({
+		"testGreetingResolves()",
+		"testReloadButtonDrivesTheGreeting()",
+		"testVersionLabelResolves()",
+		"testNoControlIsAnonymous()",
+	}) do
+		t:expect(names[case], case .. " ran and passed"):equals("Passed")
+	end
 end)
 
 prova.test("the anonymous-control bar fails when a control is unlabelled", {
 	proves = "a rule that has only ever passed is not a rule. This renders a second copy, adds "
 		.. "the exact mistake the bar exists to catch — an unlabelled TextField — and requires "
-		.. "the suite to go red. Without this, a bar that silently judged everything acceptable "
-		.. "would look identical to one that works, and would be worse than no bar at all: it "
-		.. "would report green.",
+		.. "the suite to go red. Decoding per case matters here: asserting only that the run "
+		.. "went red would also be satisfied by a compile error or an app that never launched, "
+		.. "so the proof would pass while proving nothing about the bar.",
 	resources = GUI,
 	timeout = "1800s",
 }, function(t)
@@ -166,11 +203,17 @@ prova.test("the anonymous-control bar fails when a control is unlabelled", {
 		1
 	)
 	fs.write(view, broken)
+	shell.run({ "just", "xcodeproj" }, { cwd = root, timeout = "300s", check = true })
 
-	local result = shell.run({ "just", "uitest" }, { cwd = root, timeout = "1200s", check = false })
-	t:expect(result.code, "the suite went red"):never():equals(0)
-	t:expect(result.stdout .. result.stderr, "and named why"):contains(
+	local run = xcodebuild.test(t, scheme(root))
+
+	t:expect(run.failures, "exactly one case went red"):has_length(1)
+	t:expect(run.failures[1].name, "and it is the bar"):equals("testNoControlIsAnonymous()")
+	t:expect(run.failures[1].messages[1], "which named the offending control"):contains(
 		"announce nothing to an assistive technology"
 	)
+	-- The other three still pass: the app built and launched, so what went red is the rule
+	-- itself rather than the scaffolding around it.
+	t:expect(run.passed, "the rest of the suite still passed"):equals(3)
 end)
 

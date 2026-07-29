@@ -17,3 +17,13 @@
 
 [run]
 proofs = ["proofs"]
+
+# Decodes xcodebuild's result bundle into per-case outcomes. Grepping a build log
+# for "TEST SUCCEEDED" cannot tell a passing suite from one that matched zero
+# tests, and cannot say WHICH case went red — both of which these proofs assert.
+#
+# This is a dependency of the PROOFS, not of what the archetype generates. A
+# rendered project drives its own suite through `just uitest` and needs nothing
+# from the plugin registry.
+[plugins]
+xcodebuild = "prova-rs/prova-xcodebuild@v1"
