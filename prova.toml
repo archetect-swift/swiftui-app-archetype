@@ -3,16 +3,17 @@
 #
 # Run `prova` from anywhere in this repo.
 #
-# Deliberately NO UI-driving plugin. Generated projects carry accessibility
-# identifiers (see AccessibilityID in the rendered RootView) precisely so a UI
-# harness can drive them, but this public archetype does not depend on one:
+# Deliberately NO UI-driving plugin. The rendered project carries its own
+# XCUITest target instead, and these proofs drive it through `just uitest`:
 #
 #   * anemnez/prova-macos-ui is private — it requires Minion, which is a paid
 #     Anemnez product. A public template cannot require something nobody can buy.
-#   * XCUITest is the open answer for proving your OWN app's UI, ships free with
-#     Xcode, and can express the same "no anonymous controls" rule.
+#   * XCUITest ships free with Xcode, drives the app under test, and expresses
+#     the same "no anonymous controls" rule. For proving your OWN app that is
+#     the right tool; Minion earns its keep driving apps it does not own.
 #
-# Adding an XCUITest target here is the open follow-up.
+# The bar is proven in both directions — one proof requires it green on a clean
+# render, another breaks a control on purpose and requires it red.
 
 [run]
 proofs = ["proofs"]

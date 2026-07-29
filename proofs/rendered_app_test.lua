@@ -8,25 +8,33 @@ local NAME = "Sample App"
 local DIR = "sample-app"
 local MODULE = "SampleApp"
 
--- One render, shared by every proof in this file. Rendering is the slow part;
--- the assertions are not.
-local app = prova.fixture("rendered-app", Scope.File, function(ctx)
-	local ws = workspace.create(ctx)
+-- Every proof renders with the same answers. Answer author identity explicitly
+-- rather than letting the author library fall back to ~/.gitconfig: a proof
+-- that reads the developer's identity passes on a laptop and fails on a clean
+-- runner, which is exactly how this suite first went red in CI.
+local function render(destination)
 	shell.run({
-		"archetect", "render", prova.root, ws.path,
+		"archetect", "render", prova.root, destination,
 		"-a", "project_name=" .. NAME,
 		"-a", "organization_identifier=com.example",
 		"-a", "minimum_macos=14",
-		-- Answer these explicitly rather than letting the author library fall
-		-- back to ~/.gitconfig. A proof that reads the developer's identity
-		-- passes on a laptop and fails on a clean runner, which is exactly how
-		-- this suite first went red in CI.
 		"-a", "author_name=Proof Runner",
 		"-a", "author_email=proofs@example.com",
 		"-D",
 	}, { timeout = "300s", check = true })
-	return ws.path .. "/" .. DIR
+	return destination .. "/" .. DIR
+end
+
+-- One render, shared by every proof that only reads it. Rendering is the slow
+-- part; the assertions are not.
+local app = prova.fixture("rendered-app", Scope.File, function(ctx)
+	return render(workspace.create(ctx).path)
 end)
+
+-- Anything that launches the app takes this. Two XCUITest runs at once would
+-- fight over the same bundle identifier, and XCUITest attaches by bundle
+-- identifier — the second run would drive the first run's window.
+local GUI = { prova.writes("window-server") }
 
 prova.test("renders the layered SwiftPM + Xcode layout", {
 	proves = "the split is the point: Core has no SwiftUI so it stays testable headlessly, "
@@ -48,6 +56,8 @@ prova.test("renders the layered SwiftPM + Xcode layout", {
 		"App/" .. MODULE .. "App.swift",
 		"Tests/" .. MODULE .. "CoreTests/GreetingServiceTests.swift",
 		"Tests/" .. MODULE .. "UITests/AppModelTests.swift",
+		"AccessibilityTests/AccessibilityTests.swift",
+		".swift-format",
 	}) do
 		t:expect(fs.exists(root .. "/" .. relative), relative):equals(true)
 	end
@@ -111,5 +121,56 @@ prova.test("the .app bundle builds and signs ad-hoc", {
 	local root = t:use(app)
 	local result = shell.run({ "just", "app" }, { cwd = root, timeout = "900s", check = true })
 	t:expect(result.stdout .. result.stderr, "xcodebuild succeeded"):contains("BUILD SUCCEEDED")
+end)
+
+prova.test("the generated project is already formatted", {
+	proves = "`just ci` runs fmt-check first, so an unformatted scaffold is red on the very "
+		.. "first run — which teaches every developer who sees it that red is normal. This "
+		.. "needs .swift-format: the tool defaults to two-space indent while .editorconfig "
+		.. "asks for four, and without a config file reconciling them the scaffold cannot pass "
+		.. "its own lint.",
+}, function(t)
+	local root = t:use(app)
+	shell.run({ "just", "fmt-check" }, { cwd = root, timeout = "300s", check = true })
+end)
+
+prova.test("the accessibility suite passes against the running app", {
+	proves = "identifiers on the views are worth nothing until something drives them. XCUITest "
+		.. "ships with Xcode, so this bar costs a generated project no dependency it cannot "
+		.. "get — which is why it, and not a private UI harness, is what the archetype carries.",
+	resources = GUI,
+}, function(t)
+	local root = t:use(app)
+	local result = shell.run({ "just", "uitest" }, { cwd = root, timeout = "1200s", check = true })
+	t:expect(result.stdout .. result.stderr, "the suite ran and passed"):contains("TEST SUCCEEDED")
+end)
+
+prova.test("the anonymous-control bar fails when a control is unlabelled", {
+	proves = "a rule that has only ever passed is not a rule. This renders a second copy, adds "
+		.. "the exact mistake the bar exists to catch — an unlabelled TextField — and requires "
+		.. "the suite to go red. Without this, a bar that silently judged everything acceptable "
+		.. "would look identical to one that works, and would be worse than no bar at all: it "
+		.. "would report green.",
+	resources = GUI,
+	timeout = "1800s",
+}, function(t)
+	local root = render(workspace.create(t).path)
+	local view = root .. "/Sources/" .. MODULE .. "UI/RootView.swift"
+
+	local broken = fs.read(view):gsub(
+		"Spacer%(%)",
+		[[Spacer()
+
+                TextField("", text: .constant(""))
+                    .frame(width: 120)]],
+		1
+	)
+	fs.write(view, broken)
+
+	local result = shell.run({ "just", "uitest" }, { cwd = root, timeout = "1200s", check = false })
+	t:expect(result.code, "the suite went red"):never():equals(0)
+	t:expect(result.stdout .. result.stderr, "and named why"):contains(
+		"announce nothing to an assistive technology"
+	)
 end)
 

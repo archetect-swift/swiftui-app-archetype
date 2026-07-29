@@ -13,6 +13,7 @@ A macOS SwiftUI application.
 ```bash
 just build   # build the SwiftPM libraries
 just test    # run the Swift Testing suites
+just uitest  # drive the running .app through XCUITest
 just app     # generate the Xcode project and build the .app
 just run     # build and launch
 ```
@@ -28,6 +29,7 @@ Sources/{{ ProjectName }}Core/   domain and services; imports no SwiftUI
 Sources/{{ ProjectName }}UI/     views and view state; depends on Core
 App/                             the @main app shell, deliberately thin
 Tests/                           Swift Testing suites for Core and UI
+AccessibilityTests/              XCUITest suite driving the built .app
 ```
 
 The split is deliberate:
@@ -40,6 +42,33 @@ The split is deliberate:
   `swift test` run headless in CI with no Xcode project, no simulator, and no signing. Logic
   that creeps into `App/` becomes untestable — keep it to composition.
 
+## Two kinds of test, on purpose
+
+`Tests/` holds **Swift Testing** suites. They run under `swift test` in milliseconds with no
+app, no window server and no Xcode project, because everything they cover is a library.
+
+`AccessibilityTests/` holds an **XCUITest** suite. It launches the real `.app` and drives it
+through the Accessibility API — the same interface VoiceOver uses. Run it with `just uitest`;
+it needs a logged-in GUI session.
+
+The split matters: anything provable without launching an app belongs in `Tests/`, where it
+stays fast. `AccessibilityTests/` is for what only a running app can show.
+
+### The bar it keeps
+
+`testNoControlIsAnonymous` fails if any interactive control in the window announces nothing to
+an assistive technology. That single rule is worth more than the individual assertions around
+it, because **accessible and testable are the same property** — a control VoiceOver cannot name
+is one a UI test cannot find either. Enforcing the first buys you the second.
+
+Two details the rule had to get right, both learned the hard way:
+
+- It checks the **label**, not the identifier. SwiftUI hands out identifiers of its own — an
+  icon-only button silently inherits the SF Symbol's name — so a non-empty identifier is no
+  evidence anyone chose it.
+- It exempts identifiers prefixed `_XCUI:`. Those are AppKit's window chrome (close, minimize,
+  zoom), which XCUITest labels for you; without the exemption the bar fails on every window.
+
 ## The Xcode project is generated
 
 `{{ ProjectName }}.xcodeproj` is produced from `project.yml` by `just xcodeproj` and is not
@@ -50,12 +79,19 @@ Change `project.yml` instead and regenerate.
 
 - **Swift 6 language mode** is on (`swiftLanguageModes: [.v6]`). Data-race safety is enforced
   at compile time. Adopting it now is far cheaper than migrating later.
-- **Swift Testing** (`@Test` / `#expect`), not XCTest.
+- **Swift Testing** (`@Test` / `#expect`) for the libraries; XCTest only where XCUITest
+  requires it, in `AccessibilityTests/`.
 - **Accessibility identifiers** on every control a test or assistive technology needs to find,
-  declared once in `AccessibilityID` rather than as scattered string literals. This is what
-  makes UI automation possible later without reworking the views.
+  declared once in `AccessibilityID` rather than as scattered string literals. The UI test
+  target depends on the `{{ ProjectName }}UI` library so it refers to those constants by name —
+  renaming one is a compile error, not a silently dead selector.
 - **Explicit load states** (`LoadState`) rather than parallel `isLoading` / `error` / `value`
   flags, so illegal combinations cannot be represented.
+- **Formatting** is swift-format's, configured by `.swift-format` to 4-space indentation so it
+  agrees with `.editorconfig` instead of fighting it. `OrderedImports` is off: your module name
+  is chosen when the project is generated, so no import order baked into a template can be
+  lexicographically correct for every possible name. Switch it on and run `just fmt` once if
+  you want it — this is your project now.
 
 ## Signing
 

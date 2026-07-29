@@ -10,9 +10,14 @@ default: build
 build:
     swift build
 
-# Run the Swift Testing suites.
+# Run the Swift Testing suites. Headless and fast — no app, no window server.
 test:
     swift test
+
+# Run the XCUITest accessibility suite against the real .app. Needs a logged-in
+# GUI session: it launches the app and drives it the way VoiceOver would.
+uitest: xcodeproj
+    xcodebuild test -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -destination 'platform=macOS'
 
 # Black-box proofs (see prova.toml). Requires `prova` on PATH.
 proof:
@@ -32,16 +37,18 @@ app: xcodeproj
 run: app
     open "$(xcodebuild -project {{ ProjectName }}.xcodeproj -scheme {{ ProjectName }} -configuration Debug -showBuildSettings | awk -F'= ' '/ BUILT_PRODUCTS_DIR /{print $2}' | head -1)/{{ ProjectName }}.app"
 
-# Format sources in place using the toolchain's swift-format.
+# Format sources in place using the toolchain's swift-format, configured by
+# .swift-format so the indent matches .editorconfig rather than the tool default.
 fmt:
-    swift format --in-place --recursive Sources Tests App
+    swift format --in-place --recursive Sources Tests App AccessibilityTests
 
 # Fail if anything is unformatted — what CI should run.
 fmt-check:
-    swift format lint --strict --recursive Sources Tests App
+    swift format lint --strict --recursive Sources Tests App AccessibilityTests
 
-# Everything CI runs, in order.
-ci: fmt-check build test
+# Everything CI runs, in order. `uitest` is in here on purpose: an accessibility
+# bar nothing enforces is a comment, not a bar.
+ci: fmt-check build test uitest
 
 clean:
     swift package clean

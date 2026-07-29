@@ -52,3 +52,38 @@ targets:
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
         DEVELOPMENT_TEAM: ""
+    # Puts the UI tests in the app's own scheme, so `xcodebuild test -scheme
+    # {{ ProjectName }}` runs them. The scheme is shared and generated, not
+    # left to Xcode's autocreation, so CI and your machine run the same thing.
+    scheme:
+      testTargets:
+        - {{ ProjectName }}AccessibilityTests
+
+  # XCUITest drives the built .app through the Accessibility API — the same
+  # interface VoiceOver uses. It ships with Xcode, so this bar costs a
+  # generated project nothing and needs no third-party UI harness.
+  #
+  # Named for the bar it keeps rather than the conventional `UITests`: that
+  # name already belongs to the SwiftPM suite covering the {{ ProjectName }}UI
+  # library, and two test targets of the same name is a confusion nobody needs.
+  {{ ProjectName }}AccessibilityTests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: AccessibilityTests
+    dependencies:
+      # The app under test, and the UI library so the tests can refer to
+      # AccessibilityID by name instead of copying its string literals.
+      - target: {{ ProjectName }}
+      - package: {{ ProjectName }}
+        product: {{ ProjectName }}UI
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        # Let Xcode synthesise the bundle's Info.plist. A test bundle has
+        # nothing worth configuring in one, and a generated plist is one fewer
+        # file to keep out of version control.
+        GENERATE_INFOPLIST_FILE: true
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
