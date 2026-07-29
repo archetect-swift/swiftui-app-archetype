@@ -1,10 +1,18 @@
-# Prova proves what archetect renders. These proofs render the archetype and
-# then drive the result exactly as a developer would — through `just`, and for
-# the UI, through the Accessibility API.
+# Prova proves what archetect renders. These proofs render the archetype and then
+# drive the result exactly as a developer would — through `just`.
 #
 # Run `prova` from anywhere in this repo.
+#
+# Deliberately NO UI-driving plugin. Generated projects carry accessibility
+# identifiers (see AccessibilityID in the rendered RootView) precisely so a UI
+# harness can drive them, but this public archetype does not depend on one:
+#
+#   * anemnez/prova-macos-ui is private — it requires Minion, which is a paid
+#     Anemnez product. A public template cannot require something nobody can buy.
+#   * XCUITest is the open answer for proving your OWN app's UI, ships free with
+#     Xcode, and can express the same "no anonymous controls" rule.
+#
+# Adding an XCUITest target here is the open follow-up.
 
 [run]
-proofs      = ["proofs"]
-config      = ".prova/config.lua"   # where capabilities are registered
-plugin_root = ".prova/plugins"      # `require("macos-ui")` reaches the UI driver
+proofs = ["proofs"]

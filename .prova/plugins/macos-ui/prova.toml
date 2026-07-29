@@ -1,5 +1,0 @@
-[plugin]
-name = "macos-ui"
-description = "Drive a bundled macOS app through the Accessibility API, so a SwiftUI surface is black-box provable. Minion supplies the AX muscle; this plugin supplies the app-agnostic half — launch, window resolution, element queries by identifier, and the accessibility-first invariant every app should hold."
-
-[plugins]
