@@ -24,3 +24,10 @@ Session.vim
 .AppleDouble
 .LSOverride
 
+### Prova ###
+# The LuaLS editor pointer, rewritten whenever the suite runs. It holds machine-local absolute
+# paths — the annotation dir, and a content-hashed plugin cache path per pinned plugin — so it
+# is per-machine state, not shared source. `prova` (or `prova ide setup`) regenerates it.
+# Prova's own plugin scaffold ignores it for the same reason.
+/.luarc.json
+
