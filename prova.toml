@@ -1,9 +1,12 @@
+[requires]
+prova = ">= 0.16"
+
 # Prova proves what archetect renders. These proofs render the archetype and then
 # drive the result exactly as a developer would — through `just`.
 #
 # Run `prova` from anywhere in this repo.
 #
-# Deliberately NO UI-driving plugin. The rendered project carries its own
+# Deliberately NO UI-driving package. The rendered project carries its own
 # XCUITest target instead, and these proofs drive it through `just uitest`:
 #
 #   * anemnez/prova-macos-ui is private — it requires Minion, which is a paid
@@ -24,6 +27,6 @@ proofs = ["proofs"]
 #
 # This is a dependency of the PROOFS, not of what the archetype generates. A
 # rendered project drives its own suite through `just uitest` and needs nothing
-# from the plugin registry.
-[plugins]
+# from the package registry.
+[dependencies]
 xcodebuild = "prova-rs/prova-xcodebuild@v1"
